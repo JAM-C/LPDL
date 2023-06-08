@@ -33,19 +33,6 @@ fn load(filename: String) -> String {
     }
 }
 
-fn only_once(lst: Vec<bool>) -> bool {
-    let mut once = false;
-    for b in &lst {
-        if !once && *b {
-            once = true;
-        } else if once && *b {
-            return false;
-        }
-    }
-
-    return once;
-}
-
 fn remove_unused_data(str: &str) -> String {
     let line = str.chars().filter(|c| !c.is_whitespace()).collect::<String>();
     let comment_idx = line.find("//").unwrap_or(line.len());
@@ -53,9 +40,11 @@ fn remove_unused_data(str: &str) -> String {
 }
 
 fn comparison_condition_once(p_obj_str: &str) -> bool {
-    let comps = ["<","<=", ">", ">=", "="];
-    only_once(comps
-                .map(|c| p_obj_str.contains(c)).to_vec())
+    ["<","<=", ">", ">=", "="]
+        .map(|c| p_obj_str.contains(c))
+        .iter()
+        .filter(|c| **c)
+        .count() == 1
 }
 
 fn parse_equation(var_names: &mut Vec<String>, obj_coefficients: &mut Vec<f32>, p_obj_str: &str, equ_type: EquationType) {
@@ -70,18 +59,15 @@ fn parse_equation(var_names: &mut Vec<String>, obj_coefficients: &mut Vec<f32>, 
         }
 
         if ['+', '-', '<', '>', '='].contains(&c) && on_variable {
-            let mut a = tracked_coefficient.parse::<f32>().unwrap_or(1.0);
-            if c == '-' {
-                a = -a;
-            }
+            let value = if c == '-' {1.0} else {-1.0} * tracked_coefficient.parse::<f32>().unwrap_or(1.0);
 
             if equ_type == EquationType::COST {
                 var_names.push(tracked_variable);
-                obj_coefficients.push(a);
+                obj_coefficients.push(value);
             } else {
                 let var_idx = var_names.iter().position(|c| *c == tracked_variable);
                 if var_idx.is_some() {
-                    obj_coefficients[var_idx.unwrap()] = a;
+                    obj_coefficients[var_idx.unwrap()] = value;
                 }
             }
 
