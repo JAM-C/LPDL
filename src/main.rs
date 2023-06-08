@@ -1,6 +1,7 @@
 use std::vec::Vec;
 use std::fs;
 
+#[derive(Debug)]
 enum Type {
     MAX,
     MIN
@@ -12,12 +13,13 @@ enum EquationType {
     CONSTRAINS
 }
 
+#[derive(Debug)]
 struct LPP {
     p_type: Type,
     var_idx: Vec<String>,
-    obj_fun: Vec<i32>,
-    constrains: Vec<Vec<i32>>,
-    int: Vec<String>,
+    obj_fun: Vec<f32>,
+    constrains: Vec<Vec<f32>>,
+    int_constrains: Vec<String>,
 }
 
 fn load(filename: String) -> String {
@@ -74,7 +76,10 @@ fn parse_equation(var_names: &mut Vec<String>, obj_coefficients: &mut Vec<f32>, 
                 var_names.push(tracked_variable);
                 obj_coefficients.push(a);
             } else {
-                obj_coefficients[var_names.iter().position(|c| *c == tracked_variable).unwrap()] = a;
+                let var_idx = var_names.iter().position(|c| *c == tracked_variable);
+                if var_idx.is_some() {
+                    obj_coefficients[var_idx.unwrap()] = a;
+                }
             }
 
             on_variable = false;
@@ -94,25 +99,31 @@ fn parse_equation(var_names: &mut Vec<String>, obj_coefficients: &mut Vec<f32>, 
         }
     }
 
-    println!("DDD {}", tracked_coefficient.parse::<f32>().unwrap());
     obj_coefficients.push(tracked_coefficient.parse::<f32>().unwrap());
+}
 
+fn is_int_constrain(line: &str, obj_coefficients: &Vec<String>) -> bool {
+    let constrain = line.split(":").collect::<Vec<&str>>();
+    constrain.len() == 2 && obj_coefficients.contains(&constrain[0].to_string()) && constrain[1] == "int"
+}
+
+fn filter_unused(s: &String) -> bool {
+    s.len() > 0 && &s[0..1]
 }
 
 fn parse(data: String) -> Result<LPP, &'static str> {
-    let problem: LPP;
 
-    let lines: Vec<String> = data.split("\n").map(remove_whitespace).filter(|c| c.len() > 0).collect();
+    let lines: Vec<String> = data.split("\n").map(remove_whitespace).filter(filter_unused).collect();
 
     // get type
     let p_first_line_str = lines[0].split(":").collect::<Vec<&str>>();
 
     if p_first_line_str.len() != 2 {
-        return Err("Error")
+        return Err("Error");
     }
 
     if p_first_line_str[0] != "MAX" && p_first_line_str[0] != "MIN" {
-        return Err("Error")
+        return Err("Error");
     }
 
     let p_type = if p_first_line_str[0] == "MAX" {Type::MAX} else {Type::MIN}; 
@@ -129,24 +140,33 @@ fn parse(data: String) -> Result<LPP, &'static str> {
 
     parse_equation(&mut var_names, &mut obj_coefficients, &p_obj_str, EquationType::COST);
 
-    println!("{:?}", var_names);
-    println!("{:?}", obj_coefficients);
 
     // get constrains
 
     let mut constrains: Vec<Vec<f32>> = vec![vec![0.0; var_names.len() + 1]; lines.len()-1];
+    // adjust to reduce size when :int
+    let mut int_constrains: Vec<String> = Vec::new();
 
     for (i, s) in lines[1..].iter().enumerate() {
-        parse_equation(&mut var_names, &mut constrains[i], s.as_str(), EquationType::CONSTRAINS);
-        // TODO: Adjust for int constrains
+        if is_int_constrain(s.as_str(), &var_names) {
+            int_constrains.push(var_names[i].clone());
+        } else  if comparison_condition_once(p_obj_str) {
+            parse_equation(&mut var_names, &mut constrains[i], s.as_str(), EquationType::CONSTRAINS);
+        }
     }
 
-    println!("{:?}", constrains);
-
-    Err("problem")
+    let problem: LPP = {LPP {
+        p_type: p_type,
+        var_idx: var_names,
+        obj_fun: obj_coefficients,
+        constrains: constrains,
+        int_constrains: int_constrains,
+    }};
+    
+    println!("{:?}", problem);
+    Ok(problem)
 }
 
 fn main() {
     parse(load("example.txt".to_string()));
 }
-
