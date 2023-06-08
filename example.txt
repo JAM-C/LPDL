@@ -1,3 +1,5 @@
 MAX: 3x+4f-4fu+4g+2eed<23
-x < 3
+x < 3 // This is a comment
 x + 2f < 5
+eed: int
+// Also this is a comment

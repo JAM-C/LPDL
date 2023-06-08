@@ -1,5 +1,6 @@
 use std::vec::Vec;
 use std::fs;
+use std::env;
 
 #[derive(Debug)]
 enum Type {
@@ -45,8 +46,10 @@ fn only_once(lst: Vec<bool>) -> bool {
     return once;
 }
 
-fn remove_whitespace(str: &str) -> String {
-    str.chars().filter(|c| !c.is_whitespace()).collect()
+fn remove_unused_data(str: &str) -> String {
+    let line = str.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    let comment_idx = line.find("//").unwrap_or(line.len());
+    line[0..comment_idx].to_string()
 }
 
 fn comparison_condition_once(p_obj_str: &str) -> bool {
@@ -108,12 +111,12 @@ fn is_int_constrain(line: &str, obj_coefficients: &Vec<String>) -> bool {
 }
 
 fn filter_unused(s: &String) -> bool {
-    s.len() > 0 && &s[0..1]
+    s.len() > 0
 }
 
 fn parse(data: String) -> Result<LPP, &'static str> {
 
-    let lines: Vec<String> = data.split("\n").map(remove_whitespace).filter(filter_unused).collect();
+    let lines: Vec<String> = data.split("\n").map(remove_unused_data).filter(filter_unused).collect();
 
     // get type
     let p_first_line_str = lines[0].split(":").collect::<Vec<&str>>();
@@ -168,5 +171,6 @@ fn parse(data: String) -> Result<LPP, &'static str> {
 }
 
 fn main() {
-    parse(load("example.txt".to_string()));
+    let args: Vec<String> = env::args().collect();
+    parse(load(args[1].to_string()));
 }
