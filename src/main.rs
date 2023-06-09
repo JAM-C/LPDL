@@ -132,15 +132,16 @@ fn parse(data: String) -> Result<LPP, &'static str> {
 
     // get constrains
 
-    let mut constrains: Vec<Vec<f32>> = vec![vec![0.0; var_names.len() + 1]; lines.len()-1];
-    // adjust to reduce size when :int
+    let mut constrains: Vec<Vec<f32>> = Vec::new();
     let mut int_constrains: Vec<String> = Vec::new();
 
     for (i, s) in lines[1..].iter().enumerate() {
         if is_int_constrain(s.as_str(), &var_names) {
             int_constrains.push(var_names[i].clone());
-        } else  if comparison_condition_once(p_obj_str) {
-            parse_equation(&mut var_names, &mut constrains[i], s.as_str(), EquationType::CONSTRAINS);
+        } else if comparison_condition_once(p_obj_str) {
+            let mut constrain: Vec<f32> = vec![0.0; var_names.len() + 1];
+            parse_equation(&mut var_names, &mut constrain, s.as_str(), EquationType::CONSTRAINS);
+            constrains.push(constrain);
         }
     }
 
@@ -152,11 +153,10 @@ fn parse(data: String) -> Result<LPP, &'static str> {
         int_constrains: int_constrains,
     }};
     
-    println!("{:?}", problem);
     Ok(problem)
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    parse(load(args[1].to_string()));
+    println!("{:?}", parse(load(args[1].to_string())));
 }
