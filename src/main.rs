@@ -1,6 +1,7 @@
 use std::vec::Vec;
 use std::fs;
 use std::env;
+use std::io::Error;
 
 #[derive(Debug)]
 enum Type {
@@ -23,14 +24,8 @@ struct LPP {
     int_constrains: Vec<String>,
 }
 
-fn load(filename: String) -> String {
-    match fs::read_to_string(filename) {
-        Ok(data) => data,
-        Err(e) => {
-            println!("{}", e);
-            "".to_string()
-        }
-    }
+fn load(filename: String) -> Result<String, Error> {
+    fs::read_to_string(filename)
 }
 
 fn remove_unused_data(str: &str) -> String {
@@ -47,10 +42,11 @@ fn comparison_condition_once(p_obj_str: &str) -> bool {
         .count() == 1
 }
 
-fn parse_equation(var_names: &mut Vec<String>, obj_coefficients: &mut Vec<f32>, p_obj_str: &str, equ_type: EquationType) {
+fn parse_equation(var_names: &mut Vec<String>, p_obj_str: &str, equ_type: EquationType) -> Vec<f32> {
     let mut tracked_coefficient: String = "".to_string();
     let mut tracked_variable: String = "".to_string();
     let mut on_variable: bool = false;
+    let mut obj_coefficients: Vec<f32> = vec![0.0; var_names.len() + 1];
 
     for c in p_obj_str.chars() {
 
@@ -88,7 +84,11 @@ fn parse_equation(var_names: &mut Vec<String>, obj_coefficients: &mut Vec<f32>, 
         }
     }
 
-    obj_coefficients.push(tracked_coefficient.parse::<f32>().unwrap());
+    if tracked_coefficient != "" {
+        obj_coefficients.push(tracked_coefficient.parse::<f32>().unwrap());
+    }
+
+    obj_coefficients
 }
 
 fn is_int_constrain(line: &str, obj_coefficients: &Vec<String>) -> bool {
@@ -96,13 +96,9 @@ fn is_int_constrain(line: &str, obj_coefficients: &Vec<String>) -> bool {
     constrain.len() == 2 && obj_coefficients.contains(&constrain[0].to_string()) && constrain[1] == "int"
 }
 
-fn filter_unused(s: &String) -> bool {
-    s.len() > 0
-}
-
 fn parse(data: String) -> Result<LPP, &'static str> {
 
-    let lines: Vec<String> = data.split("\n").map(remove_unused_data).filter(filter_unused).collect();
+    let lines: Vec<String> = data.split("\n").map(remove_unused_data).collect();
 
     // get type
     let p_first_line_str = lines[0].split(":").collect::<Vec<&str>>();
@@ -121,13 +117,12 @@ fn parse(data: String) -> Result<LPP, &'static str> {
     let p_obj_str = p_first_line_str[1];
 
     let mut var_names: Vec<String> = Vec::new();
-    let mut obj_coefficients: Vec<f32> = Vec::new();
 
     if !comparison_condition_once(p_obj_str) {
         return Err("Error");
     }
 
-    parse_equation(&mut var_names, &mut obj_coefficients, &p_obj_str, EquationType::COST);
+    let obj_coefficients: Vec<f32> = parse_equation(&mut var_names, &p_obj_str, EquationType::COST);
 
 
     // get constrains
@@ -139,9 +134,7 @@ fn parse(data: String) -> Result<LPP, &'static str> {
         if is_int_constrain(s.as_str(), &var_names) {
             int_constrains.push(var_names[i].clone());
         } else if comparison_condition_once(p_obj_str) {
-            let mut constrain: Vec<f32> = vec![0.0; var_names.len() + 1];
-            parse_equation(&mut var_names, &mut constrain, s.as_str(), EquationType::CONSTRAINS);
-            constrains.push(constrain);
+            constrains.push(parse_equation(&mut var_names, s.as_str(), EquationType::CONSTRAINS));
         }
     }
 
@@ -158,5 +151,9 @@ fn parse(data: String) -> Result<LPP, &'static str> {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    println!("{:?}", parse(load(args[1].to_string())));
+
+    match load(args[1].to_string()) {
+        Ok(s) =>  println!("{:?}", parse(s)),
+        Err(e) => println!("{:?}", e),
+    }
 }
